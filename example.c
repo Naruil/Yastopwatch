@@ -2,38 +2,38 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include "libtimer.h"
+#include "yastopwatch.h"
 
 #define FREQ (2.4 * 1000 * 1000 * 1000)
 
-DEF_THREADED_TIMER(t1);
-DEF_TIMER(t2);
-DEF_THREADED_TSC_TIMER(t3);
-DEF_TSC_TIMER(t4);
+DEF_THREADED_SW(t1);
+DEF_SW(t2);
+DEF_THREADED_TSC_SW(t3);
+DEF_TSC_SW(t4);
 
 void* worker1 (void* arg) {
-    START_TIMER(t1);
+    START_SW(t1);
     
     sleep(1);
     
-    STOP_TIMER(t1);
-    SYNC_TIMER(t1);
+    STOP_SW(t1);
+    SYNC_SW(t1);
 }
 
 void* worker2 (void* arg) {
-    START_TIMER(t3);
+    START_SW(t3);
     
     sleep(1);
     
-    STOP_TIMER(t3);
-    SYNC_TIMER(t3);
+    STOP_SW(t3);
+    SYNC_SW(t3);
 }
 
 int main() {
-    pthread_t thr1,thr2, thr3, thr4;
+    pthread_t thr1, thr2, thr3, thr4;
 
-    START_TIMER(t2);
-    START_TIMER(t4);
+    START_SW(t2);
+    START_SW(t4);
     
     pthread_create(&thr1, NULL, worker1, NULL);
     pthread_create(&thr2, NULL, worker1, NULL);
@@ -43,8 +43,8 @@ int main() {
     pthread_join(thr1, NULL);
     pthread_join(thr2, NULL);
 
-    STOP_TIMER(t2);
-    STOP_TIMER(t4);
+    STOP_SW(t2);
+    STOP_SW(t4);
 
     printf("[t1] Total time: %lf\n", GET_SEC(t1));
     printf("[t1] Total count: %llu\n", GET_COUNT(t1));
