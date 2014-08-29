@@ -1,6 +1,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "yastopwatch.h"
 
@@ -18,6 +19,8 @@ void* worker1 (void* arg) {
     
     STOP_SW(t1);
     SYNC_SW(t1);
+
+    return NULL;
 }
 
 void* worker2 (void* arg) {
@@ -27,6 +30,8 @@ void* worker2 (void* arg) {
     
     STOP_SW(t3);
     SYNC_SW(t3);
+
+    return NULL;
 }
 
 int main() {
