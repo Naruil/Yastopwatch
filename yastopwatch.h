@@ -32,6 +32,7 @@
 #ifndef __YASTOPWATCH_H__
 #define __YASTOPWATCH_H__
 
+#include <stdint.h>
 #include <sys/time.h>
 #include <pthread.h>
 
@@ -50,13 +51,13 @@ enum __stopwatch__type__ {
 typedef struct __stopwatch__ __stopwatch_t__;
 
 struct __stopwatch__ {
-   unsigned long long last;
-   unsigned long long count;
-   unsigned long long sum;
+   uint64_t last;
+   uint64_t count;
+   uint64_t sum;
 
    /* For per-thread timing */
-   unsigned long long pcount;
-   unsigned long long psum;
+   uint64_t pcount;
+   uint64_t psum;
    
    __stopwatch_t__ *opaque;
 };
@@ -145,16 +146,16 @@ static void sync_stopwatch(struct __stopwatch__ *stopwatch) {
     stopwatch->sum = 0;
 }
 
-inline static unsigned long long get_usec(void) {
+inline static uint64_t get_usec(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return 1000000 * tv.tv_sec + tv.tv_usec;
 }
 
-inline static unsigned long long get_tsc(void) {
-    unsigned a, d;
+inline static uint64_t get_tsc(void) {
+    uint32_t a, d;
     __asm __volatile("rdtsc":"=a"(a), "=d"(d));
-    return ((unsigned long long)a) | (((unsigned long long)d) << 32);
+    return ((uint64_t)a) | (((uint64_t)d) << 32);
 }
 
 #define FREQ (2.4 * 1000 * 1000 * 1000)
