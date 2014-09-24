@@ -135,13 +135,24 @@ struct __stopwatch__ {
 #define GET_THREAD_USEC(name) (__SOURCE(name) == TSC ? GET_THREAD_TIME(name) / ((double) FREQ / 1e6) : (double)GET_THREAD_TIME(name))
 #define GET_THREAD_COUNT(name) (__SW(name).pcount)
 
+// Old version of GCC does not have atomic builtins. For better portability
+// between GCC versions, define our own atomic add function.
+static inline __attribute__((always_inline))
+    void atomic_add64(uint64_t *addr, uint64_t val) {
+    printf("inline atomic add\n");
+    asm volatile(
+        "lock; addq %1, %0"
+        : "+m"(*addr)
+        : "a"(val)
+        : "cc");
+}
 
 static void sync_stopwatch(struct __stopwatch__ *stopwatch) {
     struct __stopwatch__ *gstopwatch = stopwatch->opaque;
     stopwatch->pcount += stopwatch->count;
     stopwatch->psum += stopwatch->sum;
-    __sync_fetch_and_add(&gstopwatch->count, stopwatch->count);
-    __sync_fetch_and_add(&gstopwatch->sum, stopwatch->sum);
+    atomic_add64(&gstopwatch->count, stopwatch->count);
+    atomic_add64(&gstopwatch->sum, stopwatch->sum);
     stopwatch->count = 0;
     stopwatch->sum = 0;
 }
@@ -152,7 +163,7 @@ inline static uint64_t get_usec(void) {
     return 1000000 * tv.tv_sec + tv.tv_usec;
 }
 
-inline static uint64_t get_tsc(void) {
+static inline __attribute__((always_inline)) uint64_t get_tsc(void) {
     uint32_t a, d;
     __asm __volatile("rdtsc":"=a"(a), "=d"(d));
     return ((uint64_t)a) | (((uint64_t)d) << 32);
