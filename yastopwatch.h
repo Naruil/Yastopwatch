@@ -32,6 +32,7 @@
 #ifndef __YASTOPWATCH_H__
 #define __YASTOPWATCH_H__
 
+#include <stdint.h>
 #include <sys/time.h>
 #include <pthread.h>
 
@@ -50,13 +51,13 @@ enum __stopwatch__type__ {
 typedef struct __stopwatch__ __stopwatch_t__;
 
 struct __stopwatch__ {
-   unsigned long long last;
-   unsigned long long count;
-   unsigned long long sum;
+   uint64_t last;
+   uint64_t count;
+   uint64_t sum;
 
    /* For per-thread timing */
-   unsigned long long pcount;
-   unsigned long long psum;
+   uint64_t pcount;
+   uint64_t psum;
    
    __stopwatch_t__ *opaque;
 };
@@ -125,36 +126,47 @@ struct __stopwatch__ {
 }
 
 #define GET_TIME(name) (__TYPE(name) == THREADED ? (__SW(name).opaque)->sum : __SW(name).sum)
-#define GET_SEC(name) (__SOURCE(name) == TSC ? GET_TIME(name) / (double) FREQ : GET_TIME(name) / (double) 1000000)
-#define GET_USEC(name) (__SOURCE(name) == TSC ? GET_TIME(name) / ((double) FREQ / 1000000) : (double)GET_TIME(name))
+#define GET_SEC(name) (__SOURCE(name) == TSC ? GET_TIME(name) / (double) FREQ : GET_TIME(name) / 1e6)
+#define GET_USEC(name) (__SOURCE(name) == TSC ? GET_TIME(name) / ((double) FREQ / 1e6) : (double) GET_TIME(name))
 #define GET_COUNT(name) (__TYPE(name) == THREADED ? (__SW(name).opaque)->count : __SW(name).count)
 
 #define GET_THREAD_TIME(name) (__SW(name).psum)
-#define GET_THREAD_SEC(name) (__SOURCE(name) == TSC ? GET_THREAD_TIME(name) / (double) FREQ : GET_THREAD_TIME(name) / (double) 1000000)
-#define GET_THREAD_USEC(name) (__SOURCE(name) == TSC ? GET_THREAD_TIME(name) / ((double) FREQ / 1000000) : (double)GET_THREAD_TIME(name))
+#define GET_THREAD_SEC(name) (__SOURCE(name) == TSC ? GET_THREAD_TIME(name) / (double) FREQ : GET_THREAD_TIME(name) / 1e6)
+#define GET_THREAD_USEC(name) (__SOURCE(name) == TSC ? GET_THREAD_TIME(name) / ((double) FREQ / 1e6) : (double)GET_THREAD_TIME(name))
 #define GET_THREAD_COUNT(name) (__SW(name).pcount)
 
+// Old version of GCC does not have atomic builtins. For better portability
+// between GCC versions, define our own atomic add function.
+static inline __attribute__((always_inline))
+    void atomic_add64(uint64_t *addr, uint64_t val) {
+    printf("inline atomic add\n");
+    asm volatile(
+        "lock; addq %1, %0"
+        : "+m"(*addr)
+        : "a"(val)
+        : "cc");
+}
 
 static void sync_stopwatch(struct __stopwatch__ *stopwatch) {
     struct __stopwatch__ *gstopwatch = stopwatch->opaque;
     stopwatch->pcount += stopwatch->count;
     stopwatch->psum += stopwatch->sum;
-    __sync_fetch_and_add(&gstopwatch->count, stopwatch->count);
-    __sync_fetch_and_add(&gstopwatch->sum, stopwatch->sum);
+    atomic_add64(&gstopwatch->count, stopwatch->count);
+    atomic_add64(&gstopwatch->sum, stopwatch->sum);
     stopwatch->count = 0;
     stopwatch->sum = 0;
 }
 
-inline static unsigned long long get_usec(void) {
+inline static uint64_t get_usec(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return 1000000 * tv.tv_sec + tv.tv_usec;
 }
 
-inline static unsigned long long get_tsc(void) {
-    unsigned a, d;
+static inline __attribute__((always_inline)) uint64_t get_tsc(void) {
+    uint32_t a, d;
     __asm __volatile("rdtsc":"=a"(a), "=d"(d));
-    return ((unsigned long long)a) | (((unsigned long long)d) << 32);
+    return ((uint64_t)a) | (((uint64_t)d) << 32);
 }
 
 #define FREQ (2.4 * 1000 * 1000 * 1000)
